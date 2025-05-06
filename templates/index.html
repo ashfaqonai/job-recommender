@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resume Feedback Agent</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .drop-zone {
+            border: 2px dashed #4a5568;
+            transition: all 0.3s ease;
+        }
+        .drop-zone:hover {
+            border-color: #2d3748;
+            background-color: #f7fafc;
+        }
+        .loading {
+            display: none;
+        }
+        .loading.active {
+            display: block;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <div class="max-w-2xl mx-auto">
+            <h1 class="text-4xl font-bold text-center text-gray-800 mb-8">Resume Feedback Agent</h1>
+            
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+                <div class="drop-zone rounded-lg p-8 text-center cursor-pointer" id="dropZone">
+                    <input type="file" id="fileInput" class="hidden" accept=".pdf,.docx">
+                    <div class="text-gray-600">
+                        <svg class="mx-auto h-12 w-12 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                        </svg>
+                        <p class="text-lg">Drag and drop your resume here</p>
+                        <p class="text-sm mt-2">or</p>
+                        <button class="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
+                            Browse Files
+                        </button>
+                        <p class="text-sm mt-2 text-gray-500">Supported formats: PDF, DOCX</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="loading bg-white rounded-lg shadow-lg p-6" id="loading">
+                <div class="flex items-center justify-center">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                    <span class="ml-3">Analyzing your resume...</span>
+                </div>
+            </div>
+
+            <div class="results bg-white rounded-lg shadow-lg p-6 hidden" id="results">
+                <h2 class="text-2xl font-semibold mb-4">Resume Analysis</h2>
+                <div class="space-y-4">
+                    <div class="stat">
+                        <h3 class="text-lg font-medium text-gray-700">Word Count</h3>
+                        <p class="text-gray-600" id="wordCount">-</p>
+                    </div>
+                    <div class="stat">
+                        <h3 class="text-lg font-medium text-gray-700">Sentences</h3>
+                        <p class="text-gray-600" id="sentenceCount">-</p>
+                    </div>
+                    <div class="stat">
+                        <h3 class="text-lg font-medium text-gray-700">Skills Identified</h3>
+                        <ul class="list-disc list-inside text-gray-600" id="skillsList"></ul>
+                    </div>
+                    <div class="stat">
+                        <h3 class="text-lg font-medium text-gray-700">Experience</h3>
+                        <ul class="list-disc list-inside text-gray-600" id="experienceList"></ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const loading = document.getElementById('loading');
+        const results = document.getElementById('results');
+
+        // Handle file selection
+        dropZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', handleFileSelect);
+
+        // Handle drag and drop
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('border-blue-500');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('border-blue-500');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('border-blue-500');
+            const files = e.dataTransfer.files;
+            if (files.length) handleFile(files[0]);
+        });
+
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (file) handleFile(file);
+        }
+
+        function handleFile(file) {
+            if (!file.name.match(/\.(pdf|docx)$/i)) {
+                alert('Please upload a PDF or DOCX file');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('resume', file);
+
+            loading.classList.add('active');
+            results.classList.add('hidden');
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                loading.classList.remove('active');
+                results.classList.remove('hidden');
+                
+                document.getElementById('wordCount').textContent = data.word_count;
+                document.getElementById('sentenceCount').textContent = data.sentences;
+                
+                const skillsList = document.getElementById('skillsList');
+                skillsList.innerHTML = data.skills.map(skill => `<li>${skill}</li>`).join('') || '<li>No skills identified</li>';
+                
+                const experienceList = document.getElementById('experienceList');
+                experienceList.innerHTML = data.experience.map(exp => `<li>${exp}</li>`).join('') || '<li>No experience identified</li>';
+            })
+            .catch(error => {
+                loading.classList.remove('active');
+                alert('Error analyzing resume. Please try again.');
+                console.error('Error:', error);
+            });
+        }
+    </script>
+</body>
+</html> 
